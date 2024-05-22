@@ -1,5 +1,10 @@
+import Header from "./Header";
 function Calendar() {
-  return <div>Calendar</div>;
+  return (
+    <div>
+      <Header />
+    </div>
+  );
 }
 
 export default Calendar;
