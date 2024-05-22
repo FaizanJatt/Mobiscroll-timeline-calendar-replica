@@ -1,7 +1,8 @@
 import Calendar from "./components/Calendar";
+
 function App() {
   return (
-    <div>
+    <div className="flex">
       <Calendar />
     </div>
   );
