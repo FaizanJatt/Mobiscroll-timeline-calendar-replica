@@ -1,47 +1,104 @@
-import moment from "moment";
-import { MouseEvent } from "react";
-interface CalendarBodyProps {
-  daysArray: Date[];
-  resourceList: string[];
-  createEvent: (e: MouseEvent) => void;
+import { MouseEvent, useEffect, useRef } from "react";
+import { v4 as uuidv4 } from "uuid";
+
+import Event from "./Event";
+
+interface DayData {
+  date: Date;
+  isWeekend: boolean;
 }
 
+interface EventData {
+  title: string;
+  startTime: Date;
+  endTime: Date;
+  originalColor: string;
+  hoverColor: string;
+  darkestColor: string;
+}
+
+interface CalendarBodyProps {
+  daysArray: DayData[];
+  resourceList: { [resource: string]: { date: Date; events: EventData[] }[] };
+  createEvent: (e: MouseEvent, resource: string, date: Date) => void;
+  onUpdateEvent: (
+    resource: string,
+    date: Date,
+    updatedEvent: EventData
+  ) => void;
+}
 function CalendarBody({
   daysArray,
   resourceList,
   createEvent,
+  onUpdateEvent,
 }: CalendarBodyProps) {
-  return (
-    <div className="flex flex-col " id="calendarBody">
-      {resourceList.map((eachResource, i) => {
-        return (
-          <div
-            key={`${i * Math.ceil(Math.random() * 999)} Res`}
-            className="flex w-max justify-start h-max "
-          >
-            <div className="sticky bg-white left-0 h-14 font-bold min-w-40  text-sm border-[#ccc] border">
-              {eachResource}
-            </div>
+  const rowRefs = useRef<{ [resourceName: string]: HTMLDivElement | null }>({});
 
-            {daysArray.map((date, index) => {
-              return (
-                <div
-                  id="cell"
-                  key={`${date.getTime()}-${index}-Month`}
-                  className="flex w-20 gap-2 pt-1 text-sm border-[#ccc] border "
-                  onDoubleClick={(e) => createEvent(e)}
-                  // onDoubleClick={}
-                >
-                  {/* <div>{moment(date).day()}</div>
-                  <div>{moment(date).format("ddd")}</div> */}
-                </div>
-              );
-            })}
+  useEffect(() => {
+    // Adjust row heights after render
+    for (const resourceName in rowRefs.current) {
+      const row = rowRefs.current[resourceName];
+      if (row) {
+        const cells = row.querySelectorAll("#cell"); // Get all cells in this row
+        let maxHeight = 0;
+        cells.forEach((cell) => {
+          if (cell instanceof HTMLElement && cell.offsetHeight > maxHeight) {
+            maxHeight = cell.offsetHeight; // Find the maximum cell height
+          }
+        });
+        cells.forEach((cell) => {
+          if (cell instanceof HTMLElement) {
+            cell.style.minHeight = `${maxHeight}px`; // Set minHeight for all cells
+          }
+        });
+      }
+    }
+  }, [resourceList]);
+
+  return (
+    <div className="flex flex-col h-max" id="calendarBody">
+      {Object.entries(resourceList).map(([resourceName, resourceItems]) => (
+        <div
+          key={uuidv4()}
+          className="flex w-full " // Removed min-h-16, but keep flex to allow flex-grow
+          ref={(el) => (rowRefs.current[resourceName] = el)} // Assign ref to the row
+        >
+          <div className="sticky z-50  bg-white left-0 font-bold min-w-40 text-sm border-[#ccc] border">
+            {resourceName}
           </div>
-        );
-      })}
+
+          <div className="flex flex-grow h-auto min-h-16 justify-start items-start ">
+            {resourceItems.map((resourceItem, index) => (
+              <div
+                id="cell"
+                key={uuidv4()}
+                className=" text-xs pb-1 pt-1 w-20 flex flex-col gap-2  h-[100%] border-[#ccc] border"
+                onDoubleClick={(e) =>
+                  createEvent(e, resourceName, resourceItem.date)
+                }
+              >
+                {resourceItem.events.map((event, eventIndex) => (
+                  <Event
+                    key={uuidv4()}
+                    eventData={event}
+                    dayIndex={index}
+                    totalContainerWidth={80}
+                    onUpdateEvent={(updatedEvent) => {
+                      onUpdateEvent(
+                        resourceName,
+                        resourceItem.date,
+                        updatedEvent
+                      );
+                    }}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
-
 export default CalendarBody;
