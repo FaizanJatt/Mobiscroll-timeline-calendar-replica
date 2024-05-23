@@ -37,7 +37,8 @@ function Event({
   );
   const [selected, setSelected] = useState(false);
   const eventRef = useRef<HTMLDivElement | null>(null);
-  const [isResizingLeft, setIsResizingLeft] = useState(false);
+  const isResizingLeft = useRef<boolean>(false); // Change isResizingLeft to a ref
+
   const [leftOffset, setLeftOffset] = useState(0); // New state to track left offset
 
   useEffect(() => {
@@ -68,9 +69,9 @@ function Event({
     const x = e.clientX - rect.left;
 
     if (x < threshold) {
-      setIsResizingLeft(true);
+      isResizingLeft.current = true;
     } else if (x > rect.width - threshold) {
-      setIsResizingLeft(false);
+      isResizingLeft.current = false;
     } else {
       return;
     }
@@ -85,29 +86,39 @@ function Event({
     if (!isResizing.current || !eventRef.current) return;
 
     const rect = eventRef.current.getBoundingClientRect();
+    const containerRect =
+      eventRef.current.parentElement!.getBoundingClientRect();
     const totalMinutesInDay = 24 * 60;
     const minutesPerPixel = totalMinutesInDay / totalContainerWidth;
 
-    if (isResizingLeft) {
-      const newLeft = Math.min(e.clientX, rect.right - 20);
-      const newWidth = rect.right - newLeft;
+    if (isResizingLeft.current) {
+      const newLeft = e.clientX - containerRect.left;
+      const potentialNewWidth = rect.right - newLeft;
+      const newDayIndex = Math.floor(newLeft / 80);
 
+      // Ensure the event doesn't move beyond the calendar's start or become too small
+      if (newDayIndex < 0 || potentialNewWidth < 20) return;
+
+      const newWidth = potentialNewWidth;
       setEventWidth(newWidth);
+      setLeftOffset(newLeft);
 
       const newStartMinutes =
         eventData.startTime.getHours() * 60 +
         eventData.startTime.getMinutes() +
-        Math.round((rect.left - newLeft) * minutesPerPixel);
+        Math.round(
+          (dayIndex - newDayIndex) * totalMinutesInDay -
+            (rect.left - newLeft) * minutesPerPixel
+        );
 
       const newStartTime = new Date(eventData.startTime);
+      newStartTime.setDate(newStartTime.getDate() - (dayIndex - newDayIndex));
       newStartTime.setHours(Math.floor(newStartMinutes / 60));
       newStartTime.setMinutes(newStartMinutes % 60);
 
-      const newEndTime = new Date(eventData.endTime); // Keep the original end time
       startTime.current = newStartTime;
-      endTime.current = newEndTime;
       setEventTimeState(
-        `${formatTime(newStartTime)} - ${formatTime(newEndTime)}`
+        `${formatTime(newStartTime)} - ${formatTime(eventData.endTime)}`
       );
     } else {
       const newWidth = Math.max(e.clientX - rect.left, 20);
@@ -153,7 +164,7 @@ function Event({
     const isNearRightEdge = x > rect.width - threshold;
 
     e.currentTarget.style.cursor =
-      isNearLeftEdge || isNearRightEdge ? "ew-resize" : "default";
+      isNearLeftEdge || isNearRightEdge ? "ew-resize" : "pointer";
   };
 
   const innerHoverHandler = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -167,33 +178,54 @@ function Event({
   };
 
   return (
-    <div
-      ref={eventRef}
-      style={{
-        width: `${eventWidth}px`,
-        backgroundColor: selected
-          ? eventData.darkestColor
-          : hoverState
-          ? eventData.hoverColor
-          : eventData.originalColor,
-      }}
-      onMouseEnter={() => setHoverState(true)}
-      onMouseMove={mouseMoveHandler}
-      onMouseLeave={() => setHoverState(false)}
-      onClick={() => setSelected(true)}
-      className={`h-10 relative  flex justify-start items-start  overflow-hidden rounded-md hover:opacity-100 `}
-      onMouseDown={handleMouseDown}
-    >
+    <div className="flex">
+      {hoverState || isResizing.current ? (
+        <div className="  z-50 absolute  w-min flex  justify-center h-10 items-center pointer-events-none">
+          <div
+            className={`p-[.2rem] absolute -left-1 border border-solid rounded-full bg-emerald-50 `}
+            style={{
+              borderColor: eventData.darkestColor,
+            }}
+          ></div>
+        </div>
+      ) : null}
       <div
-        onMouseEnter={innerHoverHandler}
-        className={`p-1  text-xs text-nowrap pointer-events-none font-bold ${
-          selected ? "text-white" : "text-black"
-        }`}
+        ref={eventRef}
+        style={{
+          width: `${eventWidth}px`,
+          backgroundColor: selected
+            ? eventData.darkestColor
+            : hoverState
+            ? eventData.hoverColor
+            : eventData.originalColor,
+        }}
+        onMouseEnter={() => setHoverState(true)}
+        onMouseMove={mouseMoveHandler}
+        onMouseLeave={() => setHoverState(false)}
+        onClick={() => setSelected(true)}
+        className={`h-10 relative flex-shrink-0 flex justify-start items-start  overflow-hidden rounded-md hover:opacity-100 `}
+        onMouseDown={handleMouseDown}
       >
-        {eventData.title}
-        <br />
-        <p className="text-[0.625rem]">{eventTimeState}</p>
+        <div
+          onMouseEnter={innerHoverHandler}
+          className={`p-1  text-xs text-nowrap pointer-events-none  ${
+            selected ? "text-white" : "text-black"
+          }`}
+        >
+          <p className="font-bold">{eventData.title}</p>
+          <p className="text-[0.625rem]">{eventTimeState}</p>
+        </div>
       </div>
+      {hoverState || isResizing.current ? (
+        <div className="  z-50  relative -left-1 w-min flex justify-center items-center pointer-events-none ">
+          <div
+            className={`p-[.2rem]  border border-solid rounded-full bg-emerald-50 `}
+            style={{
+              borderColor: eventData.darkestColor,
+            }}
+          ></div>
+        </div>
+      ) : null}
     </div>
   );
 }
