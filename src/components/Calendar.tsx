@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import moment from "moment";
 import CalendarTitle from "./CalendarTitle";
 import CalendarBody from "./CalendarBody";
 import { MouseEvent } from "react";
 import Header from "./Header";
+import { v4 as uuidv4 } from "uuid";
 
 function darkenColor(color: string, factor: number) {
   const hex = color.replace(/^#/, "");
@@ -55,6 +56,7 @@ interface EventData {
   originalColor: string;
   hoverColor: string;
   darkestColor: string;
+  id: string;
 }
 
 function Calendar() {
@@ -64,7 +66,56 @@ function Calendar() {
   const [daysArray, setDaysArray] = useState<DayData[]>([]);
   const [resourceListWithEvents, setResourceListWithEvents] = useState<{
     [resource: string]: { date: Date; events: EventData[] }[];
-  }>({});
+  }>(() => {
+    // Load from localStorage on initial render
+    const storedDataString = localStorage.getItem("resourceListWithEvents");
+    // localStorage.removeItem("resourceListWithEvents");
+    if (storedDataString) {
+      const parsedData = JSON.parse(storedDataString);
+
+      // Convert date strings back to Date objects
+      for (const resource in parsedData) {
+        parsedData[resource] = parsedData[resource].map(
+          (item: { date: string; events: EventData[] }) => ({
+            date: new Date(item.date),
+            events: item.events.map((event: EventData) => ({
+              ...event,
+              startTime: new Date(event.startTime),
+              endTime: new Date(event.endTime),
+            })),
+          })
+        );
+      }
+      return parsedData;
+    }
+    return {};
+  });
+
+  const filteredResourceList = useMemo(() => {
+    const filteredData: {
+      [resource: string]: { date: Date; events: EventData[] }[];
+    } = {};
+
+    for (const resource in resourceListWithEvents) {
+      filteredData[resource] = resourceListWithEvents[resource].filter(
+        (item) => {
+          const itemDate = moment(item.date);
+          return itemDate.month() === month && itemDate.year() === year; // Filter by month and year
+        }
+      );
+    }
+
+    return filteredData;
+  }, [resourceListWithEvents, month, year]);
+  console.log(resourceListWithEvents);
+
+  useEffect(() => {
+    // Save to localStorage whenever resourceListWithEvents changes
+    localStorage.setItem(
+      "resourceListWithEvents",
+      JSON.stringify(resourceListWithEvents)
+    );
+  }, [resourceListWithEvents]);
 
   useEffect(() => {
     calendarMonthLayoutHandler();
@@ -89,6 +140,7 @@ function Calendar() {
     const firstDayOfMonth = moment([year, month]);
     const daysInMonth = firstDayOfMonth.daysInMonth();
     const daysArray: DayData[] = [];
+
     for (let day = 1; day <= daysInMonth; day++) {
       const currentDate = firstDayOfMonth.clone().date(day);
       daysArray.push({
@@ -96,20 +148,39 @@ function Calendar() {
         isWeekend: currentDate.day() === 0 || currentDate.day() === 6,
       });
     }
-    const newResourceData: {
-      [resource: string]: { date: Date; events: EventData[] }[];
-    } = {};
-    resourceList.forEach((resource) => {
-      newResourceData[resource] = daysArray.map((dayData) => ({
-        date: dayData.date,
-        events: [],
-      }));
+
+    setResourceListWithEvents((prevResourceData) => {
+      const newResourceData = { ...prevResourceData }; // Create a new object to trigger a re-render
+      resourceList.forEach((resource) => {
+        // Check if resource already has events for the month
+        if (!newResourceData[resource]) {
+          newResourceData[resource] = []; // Initialize if not present
+        }
+
+        daysArray.forEach((dayData) => {
+          // Find existing item for this date or create a new one
+          const existingItem = newResourceData[resource].find(
+            (item) => item.date.getTime() === dayData.date.getTime()
+          );
+
+          if (!existingItem) {
+            newResourceData[resource].push({
+              date: dayData.date,
+              events: [],
+            });
+          }
+        });
+
+        // Sort the resource items by date (if needed)
+        newResourceData[resource].sort(
+          (a, b) => a.date.getTime() - b.date.getTime()
+        );
+      });
+      return newResourceData;
     });
 
-    setDaysArray(daysArray);
-    setResourceListWithEvents(newResourceData);
+    setDaysArray(daysArray); // Update daysArray
   };
-
   const monthYearChangeHandler = (
     currMonth: number,
     currYear: number,
@@ -134,7 +205,6 @@ function Calendar() {
   };
   const createEvent = (e: MouseEvent, resource: string, date: Date) => {
     const originalColor = generateLightColor();
-
     const hoverColor = darkenColor(originalColor, 0.2);
     const darkestColor = darkenColor(originalColor, 0.25);
     setResourceListWithEvents((prevResourceData) => {
@@ -161,6 +231,7 @@ function Calendar() {
             originalColor,
             hoverColor,
             darkestColor,
+            id: uuidv4(),
           };
 
           // Update the event array immutably for this specific resource and date
@@ -187,20 +258,177 @@ function Calendar() {
     date: Date,
     updatedEvent: EventData
   ) => {
-    console.log("ON UPDATING");
-    console.log(date, updatedEvent, resource);
-
+    console.log(updatedEvent);
+    // return;
     setResourceListWithEvents((prevResourceData) => {
       const newResourceData = { ...prevResourceData };
       const resourceItems = newResourceData[resource];
 
       if (resourceItems) {
-        newResourceData[resource] = resourceItems.map((item) =>
-          item.date.getTime() === date.getTime()
-            ? { ...item, events: [updatedEvent] } // Replace the entire events array with the updated event
-            : item
+        const updatedStartDate = moment(updatedEvent.startTime).startOf("day");
+        const updatedEndDate = moment(updatedEvent.endTime).startOf("day");
+
+        // Find the original position of the event to update
+        const oldEventIndex = resourceItems.findIndex((item) =>
+          item.events.some(
+            (event) =>
+              event.originalColor === updatedEvent.originalColor &&
+              event.hoverColor === updatedEvent.hoverColor &&
+              event.darkestColor === updatedEvent.darkestColor &&
+              event.title === updatedEvent.title
+          )
         );
+
+        if (oldEventIndex === -1) return newResourceData; // Event not found
+
+        // Remove the old event from its original position
+        const oldEventItem = resourceItems.splice(oldEventIndex, 1)[0];
+        const updatedEventsWithoutOldEvent = oldEventItem.events.filter(
+          (event) =>
+            !(
+              event.originalColor === updatedEvent.originalColor &&
+              event.hoverColor === updatedEvent.hoverColor &&
+              event.darkestColor === updatedEvent.darkestColor &&
+              event.title === updatedEvent.title
+            )
+        );
+
+        resourceItems.splice(oldEventIndex, 0, {
+          ...oldEventItem,
+          events: updatedEventsWithoutOldEvent,
+        }); // Put the item back without the old event
+
+        const numDays = updatedEndDate.diff(updatedStartDate, "days") + 1; // Number of days the updated event spans
+
+        newResourceData[resource] = resourceItems.map((item, index) => {
+          const itemDate = moment(item.date).startOf("day");
+          const itemEnd = moment(item.date).endOf("day");
+
+          if (
+            index === oldEventIndex &&
+            itemDate.isSame(updatedStartDate) &&
+            itemEnd.isSame(updatedEndDate)
+          ) {
+            // Insert the updated event at the correct position
+            return { ...item, events: [updatedEvent] };
+          } else if (
+            itemDate.isAfter(updatedStartDate) &&
+            itemDate.isSameOrBefore(updatedEndDate)
+          ) {
+            const transparentEvent: EventData = {
+              title: "",
+              originalColor: "transparent",
+              hoverColor: "transparent",
+              darkestColor: "transparent",
+              startTime: itemDate.toDate(),
+              endTime: itemDate.isSame(updatedEndDate)
+                ? updatedEvent.endTime
+                : itemDate.endOf("day").toDate(),
+              id: updatedEvent.id,
+            };
+            // if(item.events.includes())
+            let exists = item.events.findIndex((e) => e.id === updatedEvent.id);
+            console.log(exists);
+            // console.log(item.events.includes);
+            // let doesTransparentItemAlreadyExist =
+            let updatedEvents: EventData[] = [];
+            if (exists === -1) {
+              console.log("DOESNT EXIST");
+              updatedEvents = [...item.events, transparentEvent];
+            }
+            return { ...item, events: updatedEvents };
+          } else {
+            // If the item date is outside the updated event's range, return it unchanged
+            return item;
+          }
+        });
+
+        // Add updatedEvent to the new index
+        const newEventIndex = resourceItems.findIndex((item) =>
+          moment(item.date).startOf("day").isSame(updatedStartDate)
+        );
+        if (newEventIndex > -1)
+          newResourceData[resource][newEventIndex].events.push(updatedEvent);
       }
+
+      return newResourceData;
+    });
+  };
+
+  // const deleteEvent = (
+  //   resource: string,
+  //   eventToDelete: EventData,
+  //   eventIndex: number
+  // ) => {
+  //   setResourceListWithEvents((prevResourceData) => {
+  //     const newResourceData = { ...prevResourceData };
+  //     const resourceItems = newResourceData[resource];
+
+  //     if (!resourceItems) return prevResourceData;
+
+  //     const startDate = moment(eventToDelete.startTime).startOf("day");
+  //     const endDate = moment(eventToDelete.endTime).startOf("day");
+
+  //     newResourceData[resource] = resourceItems.map((item) => {
+  //       const itemDate = moment(item.date).startOf("day");
+  //       let updatedEvents = [...item.events];
+
+  //       // 1. Check if the event to delete exists in this day's events
+  //       if (
+  //         itemDate.isSame(startDate) &&
+  //         updatedEvents[eventIndex] === eventToDelete
+  //       ) {
+  //         updatedEvents.splice(eventIndex, 1); // Remove the original event
+
+  //         // 2. Also remove any transparent events on the same day (startDate)
+  //         updatedEvents = updatedEvents.filter(
+  //           (event) =>
+  //             !(
+  //               event.originalColor === "transparent" &&
+  //               event.hoverColor === "transparent" &&
+  //               event.darkestColor === "transparent"
+  //             )
+  //         );
+  //       } else if (
+  //         // 3. If it's not the first day, remove transparent events
+  //         itemDate.isAfter(startDate) &&
+  //         itemDate.isSameOrBefore(endDate)
+  //       ) {
+  //         updatedEvents = updatedEvents.filter(
+  //           (event) =>
+  //             !(
+  //               event.originalColor === "transparent" &&
+  //               event.hoverColor === "transparent" &&
+  //               event.darkestColor === "transparent"
+  //             )
+  //         );
+  //       }
+
+  //       return { ...item, events: updatedEvents };
+  //     });
+
+  //     return newResourceData;
+  //   });
+  // };
+  const deleteEvent = (
+    resource: string,
+    eventToDelete: EventData,
+    eventIndex: number
+  ) => {
+    setResourceListWithEvents((prevResourceData) => {
+      const newResourceData = { ...prevResourceData };
+      const resourceItems = newResourceData[resource];
+
+      if (!resourceItems) return prevResourceData; // Resource not found, return unchanged data
+
+      // Assuming EventData now has an id field
+      const eventIdToDelete = eventToDelete.id;
+
+      newResourceData[resource] = resourceItems.map((item) => ({
+        ...item,
+        events: item.events.filter((event) => event.id !== eventIdToDelete),
+      }));
+
       return newResourceData;
     });
   };
@@ -218,8 +446,9 @@ function Calendar() {
       <CalendarTitle daysArray={daysArray} />
       <CalendarBody
         createEvent={createEvent}
-        resourceList={resourceListWithEvents}
+        resourceList={filteredResourceList}
         daysArray={daysArray}
+        deleteEvent={deleteEvent}
         onUpdateEvent={onUpdateEvent} // Pass onUpdateEvent to CalendarBody
       />
     </div>

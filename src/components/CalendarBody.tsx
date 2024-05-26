@@ -15,6 +15,7 @@ interface EventData {
   originalColor: string;
   hoverColor: string;
   darkestColor: string;
+  id: string;
 }
 
 interface CalendarBodyProps {
@@ -26,12 +27,18 @@ interface CalendarBodyProps {
     date: Date,
     updatedEvent: EventData
   ) => void;
+  deleteEvent: (
+    resource: string,
+    eventToDelete: EventData,
+    eventIndex: number
+  ) => void;
 }
 function CalendarBody({
   daysArray,
   resourceList,
   createEvent,
   onUpdateEvent,
+  deleteEvent,
 }: CalendarBodyProps) {
   const rowRefs = useRef<{ [resourceName: string]: HTMLDivElement | null }>({});
 
@@ -61,8 +68,8 @@ function CalendarBody({
       {Object.entries(resourceList).map(([resourceName, resourceItems]) => (
         <div
           key={uuidv4()}
-          className="flex w-full " // Removed min-h-16, but keep flex to allow flex-grow
-          ref={(el) => (rowRefs.current[resourceName] = el)} // Assign ref to the row
+          className="flex w-full "
+          ref={(el) => (rowRefs.current[resourceName] = el)}
         >
           <div className="sticky z-50  bg-white left-0 font-bold min-w-40 text-sm border-[#ccc] border">
             {resourceName}
@@ -90,6 +97,9 @@ function CalendarBody({
                         resourceItem.date,
                         updatedEvent
                       );
+                    }}
+                    onDeleteEvent={(eventToDelete) => {
+                      deleteEvent(resourceName, eventToDelete, eventIndex);
                     }}
                   />
                 ))}

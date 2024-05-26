@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import moment from "moment";
+import Bin from "../assets/Bin";
 
 interface EventData {
   title: string;
@@ -8,6 +9,7 @@ interface EventData {
   originalColor: string;
   hoverColor: string;
   darkestColor: string;
+  id: string;
 }
 
 interface EventProps {
@@ -15,6 +17,7 @@ interface EventProps {
   dayIndex: number;
   totalContainerWidth: number;
   onUpdateEvent: (updatedEvent: EventData) => void;
+  onDeleteEvent: (deleteEvent: EventData) => void;
 }
 
 const formatTime = (date: Date) => {
@@ -26,6 +29,7 @@ function Event({
   onUpdateEvent,
   dayIndex,
   totalContainerWidth,
+  onDeleteEvent,
 }: EventProps) {
   const [eventWidth, setEventWidth] = useState(0);
   const isResizing = useRef<Boolean>(false);
@@ -59,6 +63,24 @@ function Event({
     const widthPixels =
       (eventDurationMinutes / totalMinutesInDay) * totalContainerWidth +
       (numDays - 1);
+
+    // Calculate left offset based on start time
+    const offsetMinutes = startMinutes; // Minutes elapsed since start of day
+    const offsetPixels = Math.round(
+      (offsetMinutes / totalMinutesInDay) * totalContainerWidth
+    );
+
+    // Center events less than 1 day long (adjust the divisor if needed)
+    if (numDays === 1 && offsetPixels > 0 && offsetPixels < 80 / 2) {
+      // Assuming 80px per cell
+      const centerOffset = (80 - widthPixels) / 2;
+      console.log(centerOffset);
+      setLeftOffset(Math.round(centerOffset));
+    } else {
+      setLeftOffset(offsetPixels);
+    }
+    console.log(widthPixels);
+
     setEventWidth(Math.max(widthPixels, 20));
   };
 
@@ -91,35 +113,51 @@ function Event({
     const totalMinutesInDay = 24 * 60;
     const minutesPerPixel = totalMinutesInDay / totalContainerWidth;
 
+    const maxLeft = rect.left; // Maximum allowed left position (original left edge)
+
     if (isResizingLeft.current) {
-      const newLeft = e.clientX - containerRect.left;
-      const potentialNewWidth = rect.right - newLeft;
-      const newDayIndex = Math.floor(newLeft / 80);
+      const newLeft = Math.min(maxLeft, e.clientX - containerRect.left); // Allow moving left up to original position
+      let newWidth;
+      if (newLeft > 0) {
+        // let offsetChange = Math.abs(leftOffset) - Math.abs(newLeft);
+        newWidth = eventWidth - Math.abs(newLeft);
+        console.log(newWidth);
+        // console.log(Math.abs(newLeft));
+        setLeftOffset(Math.abs(newLeft));
+      } else {
+        let offsetChange = Math.abs(leftOffset) - Math.abs(newLeft);
 
-      // Ensure the event doesn't move beyond the calendar's start or become too small
-      if (newDayIndex < 0 || potentialNewWidth < 20) return;
+        newWidth = eventWidth + Math.abs(offsetChange);
+      }
 
-      const newWidth = potentialNewWidth;
-      setEventWidth(newWidth);
-      setLeftOffset(newLeft);
+      // Ensure the event doesn't become too small
+      if (newWidth < 20) return;
+
+      const newDayIndex = Math.floor(newLeft / totalContainerWidth);
 
       const newStartMinutes =
         eventData.startTime.getHours() * 60 +
         eventData.startTime.getMinutes() +
         Math.round(
           (dayIndex - newDayIndex) * totalMinutesInDay -
-            (rect.left - newLeft) * minutesPerPixel
+            newWidth * minutesPerPixel
         );
 
       const newStartTime = new Date(eventData.startTime);
-      newStartTime.setDate(newStartTime.getDate() - (dayIndex - newDayIndex));
+      newStartTime.setDate(
+        newStartTime.getDate() - (dayIndex - newDayIndex - 1)
+      );
       newStartTime.setHours(Math.floor(newStartMinutes / 60));
       newStartTime.setMinutes(newStartMinutes % 60);
 
       startTime.current = newStartTime;
+      endTime.current = eventData.endTime;
       setEventTimeState(
         `${formatTime(newStartTime)} - ${formatTime(eventData.endTime)}`
       );
+
+      setEventWidth(newWidth);
+      setLeftOffset(newLeft);
     } else {
       const newWidth = Math.max(e.clientX - rect.left, 20);
       setEventWidth(newWidth);
@@ -162,7 +200,6 @@ function Event({
     const x = e.clientX - rect.left;
     const isNearLeftEdge = x < threshold;
     const isNearRightEdge = x > rect.width - threshold;
-
     e.currentTarget.style.cursor =
       isNearLeftEdge || isNearRightEdge ? "ew-resize" : "pointer";
   };
@@ -178,17 +215,11 @@ function Event({
   };
 
   return (
-    <div className="flex">
-      {hoverState || isResizing.current ? (
-        <div className="  z-50 absolute  w-min flex  justify-center h-10 items-center pointer-events-none">
-          <div
-            className={`p-[.2rem] absolute -left-1 border border-solid rounded-full bg-emerald-50 `}
-            style={{
-              borderColor: eventData.darkestColor,
-            }}
-          ></div>
-        </div>
-      ) : null}
+    <div
+      className={`flex 
+      ${eventData.title === "" && "opacity-0 pointer-events-none"}
+      `}
+    >
       <div
         ref={eventRef}
         style={{
@@ -198,34 +229,63 @@ function Event({
             : hoverState
             ? eventData.hoverColor
             : eventData.originalColor,
+          left: leftOffset,
         }}
         onMouseEnter={() => setHoverState(true)}
         onMouseMove={mouseMoveHandler}
         onMouseLeave={() => setHoverState(false)}
         onClick={() => setSelected(true)}
-        className={`h-10 relative flex-shrink-0 flex justify-start items-start  overflow-hidden rounded-md hover:opacity-100 `}
+        className={`h-10  relative flex-shrink-0 flex justify-start items-start   rounded-md hover:opacity-100 `}
         onMouseDown={handleMouseDown}
       >
+        {hoverState || isResizing.current ? (
+          <div className="  z-50 absolute  w-min flex  justify-center h-10 items-center pointer-events-none">
+            <div
+              className={`p-[.2rem]  -left-1 border border-solid rounded-full bg-emerald-50 `}
+              style={{
+                borderColor: eventData.darkestColor || "black",
+              }}
+            ></div>
+          </div>
+        ) : null}
+        {selected && !isResizing.current ? (
+          <div className="  z-50 absolute  w-min flex overf justify-center h-10  items-center pointer-events-none">
+            <div
+              className={`p-[.2rem] relative  w-min  flex justify-center items-center -bottom-6 rounded-full  `}
+            >
+              <div
+                onClick={() => {
+                  onDeleteEvent(eventData);
+                }}
+                className="cursor-pointer pointer-events-auto"
+              >
+                {selected && (
+                  <Bin height="12" color={eventData.originalColor} />
+                )}
+              </div>
+            </div>
+          </div>
+        ) : null}
         <div
           onMouseEnter={innerHoverHandler}
-          className={`p-1  text-xs text-nowrap pointer-events-none  ${
+          className={`p-1 overflow-hidden  text-xs text-nowrap pointer-events-none  ${
             selected ? "text-white" : "text-black"
           }`}
         >
           <p className="font-bold">{eventData.title}</p>
           <p className="text-[0.625rem]">{eventTimeState}</p>
         </div>
+        {hoverState || isResizing.current ? (
+          <div className="  z-50  absolute  w-full h-full flex justify-end items-center pointer-events-none ">
+            <div
+              className={`p-[.2rem]  border border-solid rounded-full bg-emerald-50 `}
+              style={{
+                borderColor: eventData.darkestColor,
+              }}
+            ></div>
+          </div>
+        ) : null}
       </div>
-      {hoverState || isResizing.current ? (
-        <div className="  z-50  relative -left-1 w-min flex justify-center items-center pointer-events-none ">
-          <div
-            className={`p-[.2rem]  border border-solid rounded-full bg-emerald-50 `}
-            style={{
-              borderColor: eventData.darkestColor,
-            }}
-          ></div>
-        </div>
-      ) : null}
     </div>
   );
 }
