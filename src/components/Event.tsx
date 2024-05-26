@@ -119,7 +119,7 @@ function Event({
     }
 
     isResizing.current = true;
-    onEventClick(eventData);
+    // onEventClick(eventData);
     // isSelected(true);
     document.addEventListener("mousemove", handleMouseMove);
     document.addEventListener("mouseup", handleMouseUp);
