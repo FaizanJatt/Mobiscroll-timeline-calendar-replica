@@ -1,30 +1,24 @@
-# React + TypeScript + Vite
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+[LIVE DEMO](https://faizanjatt.github.io/Mobiscroll-timeline-calendar-replica/)
 
-Currently, two official plugins are available:
+# Mobiscroll Timeline Calendar Replica
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+This project is a replica of the Mobiscroll Timeline Calendar component, built with React and Vite. It allows you to create and manage events on a calendar, with features like dragging to resize events and creating multi-day events.
 
-## Expanding the ESLint configuration
+## Features
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+- Interactive calendar view with day and resource-based organization.
+- Create new events by clicking on a cell.
+- Drag events to change their start time or resize their duration.
+- Create multi-day events that span across multiple cells.
+- Delete events.
+- Customizable event colors.
+- Stores events in local storage for persistence.
 
-- Configure the top-level `parserOptions` property like this:
 
-```js
-export default {
-  // other rules...
-  parserOptions: {
-    ecmaVersion: 'latest',
-    sourceType: 'module',
-    project: ['./tsconfig.json', './tsconfig.node.json'],
-    tsconfigRootDir: __dirname,
-  },
-}
-```
 
-- Replace `plugin:@typescript-eslint/recommended` to `plugin:@typescript-eslint/recommended-type-checked` or `plugin:@typescript-eslint/strict-type-checked`
-- Optionally add `plugin:@typescript-eslint/stylistic-type-checked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and add `plugin:react/recommended` & `plugin:react/jsx-runtime` to the `extends` list
+## How to run locally.
+1.git clone https://github.com/FaizanJatt/Mobiscroll-timeline-calendar-replica.git
+2.cd Mobiscroll-timeline-calendar-replica
+3.npm install (or yarn install)
+4.npm run dev (or yarn dev)
