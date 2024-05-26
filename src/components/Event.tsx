@@ -18,6 +18,8 @@ interface EventProps {
   totalContainerWidth: number;
   onUpdateEvent: (updatedEvent: EventData) => void;
   onDeleteEvent: (deleteEvent: EventData) => void;
+  isSelected: boolean;
+  onEventClick: (eventData: EventData) => void;
 }
 
 const formatTime = (date: Date) => {
@@ -30,6 +32,8 @@ function Event({
   dayIndex,
   totalContainerWidth,
   onDeleteEvent,
+  isSelected,
+  onEventClick,
 }: EventProps) {
   const [eventWidth, setEventWidth] = useState(0);
   const isResizing = useRef<Boolean>(false);
@@ -39,7 +43,7 @@ function Event({
   const [eventTimeState, setEventTimeState] = useState(
     `${formatTime(eventData.startTime)} - ${formatTime(eventData.endTime)}`
   );
-  const [selected, setSelected] = useState(false);
+  // const [selected, setSelected] = useState(false);
   const eventRef = useRef<HTMLDivElement | null>(null);
   const isResizingLeft = useRef<boolean>(false); // Change isResizingLeft to a ref
 
@@ -48,6 +52,22 @@ function Event({
   useEffect(() => {
     calculateInitialEventWidth();
   }, []);
+  // useEffect(() => {
+  //   const handleClickOutside = (event: MouseEvent) => {
+  //     if (
+  //       eventRef.current &&
+  //       !eventRef.current.contains(event.target as Node)
+  //     ) {
+  //       setSelected(false); // Deselect if clicked outside
+  //     }
+  //   };
+
+  //   document.addEventListener("mousedown", handleClickOutside);
+
+  //   return () => {
+  //     document.removeEventListener("mousedown", handleClickOutside);
+  //   };
+  // }, []);
 
   const calculateInitialEventWidth = () => {
     const totalMinutesInDay = 24 * 60;
@@ -99,7 +119,8 @@ function Event({
     }
 
     isResizing.current = true;
-    setSelected(true);
+    onEventClick(eventData);
+    // isSelected(true);
     document.addEventListener("mousemove", handleMouseMove);
     document.addEventListener("mouseup", handleMouseUp);
   };
@@ -221,10 +242,14 @@ function Event({
       `}
     >
       <div
+        onClick={(e) => {
+          e.stopPropagation();
+          onEventClick(eventData); // Call onEventClick to update selectedEventId in parent
+        }}
         ref={eventRef}
         style={{
           width: `${eventWidth}px`,
-          backgroundColor: selected
+          backgroundColor: isSelected
             ? eventData.darkestColor
             : hoverState
             ? eventData.hoverColor
@@ -234,7 +259,7 @@ function Event({
         onMouseEnter={() => setHoverState(true)}
         onMouseMove={mouseMoveHandler}
         onMouseLeave={() => setHoverState(false)}
-        onClick={() => setSelected(true)}
+        // onClick={() => setSelected(true)}
         className={`h-10  relative flex-shrink-0 flex justify-start items-start   rounded-md hover:opacity-100 `}
         onMouseDown={handleMouseDown}
       >
@@ -248,19 +273,23 @@ function Event({
             ></div>
           </div>
         ) : null}
-        {selected && !isResizing.current ? (
+        {isSelected && !isResizing.current ? (
           <div className="  z-50 absolute  w-min flex overf justify-center h-10  items-center pointer-events-none">
             <div
-              className={`p-[.2rem] relative  w-min  flex justify-center items-center -bottom-6 rounded-full  `}
+              className={`p-[.2rem] relative h-full  w-min  flex justify-center items-center -bottom-6 rounded-full  `}
             >
               <div
                 onClick={() => {
                   onDeleteEvent(eventData);
                 }}
-                className="cursor-pointer pointer-events-auto"
+                className="cursor-pointer pointer-events-auto relative  -left-6 -top-1/2 "
               >
-                {selected && (
-                  <Bin height="12" color={eventData.originalColor} />
+                {isSelected && (
+                  <Bin
+                    width={"20"}
+                    height="20"
+                    color={eventData.originalColor}
+                  />
                 )}
               </div>
             </div>
@@ -269,7 +298,7 @@ function Event({
         <div
           onMouseEnter={innerHoverHandler}
           className={`p-1 overflow-hidden  text-xs text-nowrap pointer-events-none  ${
-            selected ? "text-white" : "text-black"
+            isSelected ? "text-white" : "text-black"
           }`}
         >
           <p className="font-bold">{eventData.title}</p>
