@@ -1,4 +1,4 @@
-import { MouseEvent, useEffect, useRef } from "react";
+import { MouseEvent, useEffect, useRef, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 
 import Event from "./Event";
@@ -27,6 +27,12 @@ function CalendarBody({
 }: CalendarBodyProps) {
   const rowRefs = useRef<{ [resourceName: string]: HTMLDivElement | null }>({});
 
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+
+  const handleEventClick = (eventId: string) => {
+    setSelectedEventId((prevId) => (prevId === eventId ? null : eventId)); // Toggle selection
+  };
+  console.log(selectedEventId);
   useEffect(() => {
     // Adjust row heights after render
     for (const resourceName in rowRefs.current) {
@@ -82,6 +88,8 @@ function CalendarBody({
                     onDeleteEvent={(eventToDelete) => {
                       deleteEvent(resourceName, eventToDelete);
                     }}
+                    isSelected={event.id === selectedEventId}
+                    onEventClick={(event) => handleEventClick(event.id)}
                   />
                 ))}
               </div>

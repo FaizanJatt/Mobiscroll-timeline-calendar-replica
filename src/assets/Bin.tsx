@@ -1,12 +1,13 @@
 interface SvgProps {
   color: string;
   height: string;
+  width: string;
 }
 
-const Bin = ({ color, height }: SvgProps) => (
+const Bin = ({ color, height, width }: SvgProps) => (
   <svg
-    width="12"
-    height="12"
+    width={width}
+    height={height}
     viewBox="0 0 12 12"
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
@@ -23,7 +24,7 @@ const Bin = ({ color, height }: SvgProps) => (
     </g>
     <defs>
       <clipPath id="clip0_2392_76348">
-        <rect width="12" height={height} fill="black" />
+        <rect width={width} height={height} fill="black" />
       </clipPath>
     </defs>
   </svg>
