@@ -1,5 +1,5 @@
 
-[LIVE DEMO](https://faizanjatt.github.io/Mobiscroll-timeline-calendar-replica/)
+[Live Demo](https://faizanjatt.github.io/Mobiscroll-timeline-calendar-replica/)
 
 # Mobiscroll Timeline Calendar Replica
 
