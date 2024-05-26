@@ -3,11 +3,6 @@ import { v4 as uuidv4 } from "uuid";
 
 import Event from "./Event";
 
-interface DayData {
-  date: Date;
-  isWeekend: boolean;
-}
-
 interface EventData {
   title: string;
   startTime: Date;
@@ -19,22 +14,12 @@ interface EventData {
 }
 
 interface CalendarBodyProps {
-  daysArray: DayData[];
   resourceList: { [resource: string]: { date: Date; events: EventData[] }[] };
   createEvent: (e: MouseEvent, resource: string, date: Date) => void;
-  onUpdateEvent: (
-    resource: string,
-    date: Date,
-    updatedEvent: EventData
-  ) => void;
-  deleteEvent: (
-    resource: string,
-    eventToDelete: EventData,
-    eventIndex: number
-  ) => void;
+  onUpdateEvent: (resource: string, updatedEvent: EventData) => void;
+  deleteEvent: (resource: string, eventToDelete: EventData) => void;
 }
 function CalendarBody({
-  daysArray,
   resourceList,
   createEvent,
   onUpdateEvent,
@@ -85,21 +70,17 @@ function CalendarBody({
                   createEvent(e, resourceName, resourceItem.date)
                 }
               >
-                {resourceItem.events.map((event, eventIndex) => (
+                {resourceItem.events.map((event) => (
                   <Event
                     key={uuidv4()}
                     eventData={event}
                     dayIndex={index}
                     totalContainerWidth={80}
                     onUpdateEvent={(updatedEvent) => {
-                      onUpdateEvent(
-                        resourceName,
-                        resourceItem.date,
-                        updatedEvent
-                      );
+                      onUpdateEvent(resourceName, updatedEvent);
                     }}
                     onDeleteEvent={(eventToDelete) => {
-                      deleteEvent(resourceName, eventToDelete, eventIndex);
+                      deleteEvent(resourceName, eventToDelete);
                     }}
                   />
                 ))}

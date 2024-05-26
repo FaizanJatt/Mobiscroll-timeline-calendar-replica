@@ -107,10 +107,8 @@ function Calendar() {
 
     return filteredData;
   }, [resourceListWithEvents, month, year]);
-  console.log(resourceListWithEvents);
 
   useEffect(() => {
-    // Save to localStorage whenever resourceListWithEvents changes
     localStorage.setItem(
       "resourceListWithEvents",
       JSON.stringify(resourceListWithEvents)
@@ -203,7 +201,7 @@ function Calendar() {
     } while (parseInt(color, 16) < 0xcccccc); // Increased threshold to 0xCCCCCC
     return `#${color}`;
   };
-  const createEvent = (e: MouseEvent, resource: string, date: Date) => {
+  const createEvent = (_: MouseEvent, resource: string, date: Date) => {
     const originalColor = generateLightColor();
     const hoverColor = darkenColor(originalColor, 0.2);
     const darkestColor = darkenColor(originalColor, 0.25);
@@ -253,13 +251,8 @@ function Calendar() {
     });
   };
 
-  const onUpdateEvent = (
-    resource: string,
-    date: Date,
-    updatedEvent: EventData
-  ) => {
+  const onUpdateEvent = (resource: string, updatedEvent: EventData) => {
     console.log(updatedEvent);
-    // return;
     setResourceListWithEvents((prevResourceData) => {
       const newResourceData = { ...prevResourceData };
       const resourceItems = newResourceData[resource];
@@ -298,7 +291,7 @@ function Calendar() {
           events: updatedEventsWithoutOldEvent,
         }); // Put the item back without the old event
 
-        const numDays = updatedEndDate.diff(updatedStartDate, "days") + 1; // Number of days the updated event spans
+        // const numDays = updatedEndDate.diff(updatedStartDate, "days") + 1; // Number of days the updated event spans
 
         newResourceData[resource] = resourceItems.map((item, index) => {
           const itemDate = moment(item.date).startOf("day");
@@ -412,8 +405,8 @@ function Calendar() {
   // };
   const deleteEvent = (
     resource: string,
-    eventToDelete: EventData,
-    eventIndex: number
+    eventToDelete: EventData
+    // eventIndex: number
   ) => {
     setResourceListWithEvents((prevResourceData) => {
       const newResourceData = { ...prevResourceData };
@@ -447,9 +440,8 @@ function Calendar() {
       <CalendarBody
         createEvent={createEvent}
         resourceList={filteredResourceList}
-        daysArray={daysArray}
         deleteEvent={deleteEvent}
-        onUpdateEvent={onUpdateEvent} // Pass onUpdateEvent to CalendarBody
+        onUpdateEvent={onUpdateEvent}
       />
     </div>
   );
